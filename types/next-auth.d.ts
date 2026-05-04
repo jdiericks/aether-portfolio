@@ -7,6 +7,10 @@ declare module "next-auth" {
     name: string;
     role: "admin" | "client";
     clientSlug?: string;
+    teamRoleId?: string | null;
+    teamRoleName?: string | null;
+    isOwner?: boolean;
+    permissions?: string[];
   }
 
   interface Session {
@@ -16,6 +20,10 @@ declare module "next-auth" {
       name: string;
       role: "admin" | "client";
       clientSlug?: string;
+      teamRoleId?: string | null;
+      teamRoleName?: string | null;
+      isOwner?: boolean;
+      permissions?: string[];
     };
   }
 }
@@ -25,5 +33,9 @@ declare module "next-auth/jwt" {
     id: string;
     role: "admin" | "client";
     clientSlug?: string;
+    teamRoleId?: string | null;
+    teamRoleName?: string | null;
+    isOwner?: boolean;
+    permissions?: string[];
   }
 }

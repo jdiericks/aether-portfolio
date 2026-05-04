@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import {
+  computeEffectiveAccess,
+  type EffectiveAccess,
+} from "@/lib/permissions";
 import type {
   OAuthClientInformationFull,
   OAuthTokens,
@@ -241,6 +245,40 @@ export async function verifyAccessToken(token: string): Promise<AuthInfo> {
   };
 }
 
+/**
+ * Load the effective MCP access for the user this access token belongs to.
+ * Throws if the token is invalid/expired or the user no longer has MCP access.
+ *
+ * Used by the MCP route handler to gate access and to filter the registered
+ * tool list per-request.
+ */
+export async function resolveTokenAccess(token: string): Promise<{
+  userId: string;
+  effective: EffectiveAccess;
+}> {
+  const row = await prisma.mcpOAuthToken.findUnique({ where: { token } });
+  if (!row || row.type !== "access") throw new Error("Invalid access token");
+  if (new Date() > row.expiresAt) {
+    await prisma.mcpOAuthToken.delete({ where: { id: row.id } }).catch(() => {});
+    throw new Error("Access token expired");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: row.adminId },
+    include: { role: true },
+  });
+  if (!user || !user.isActive) {
+    throw new Error("User account is disabled or no longer exists");
+  }
+
+  const effective = computeEffectiveAccess(user, user.role);
+  if (effective.mcpAccess === "none") {
+    throw new Error("User does not have MCP access");
+  }
+
+  return { userId: user.id, effective };
+}
+
 export async function exchangeRefreshToken(
   clientId: string,
   refreshToken: string,
@@ -275,13 +313,24 @@ export async function revokeToken(_request: OAuthTokenRevocationRequest) {
 export async function verifyAdminCredentials(
   email: string,
   password: string,
-): Promise<{ id: string; email: string; name: string } | null> {
+): Promise<
+  | { id: string; email: string; name: string }
+  | { error: "invalid_credentials" | "mcp_access_denied" | "user_disabled" }
+> {
   const admin = await prisma.user.findUnique({
     where: { email: email.trim().toLowerCase() },
+    include: { role: true },
   });
-  if (!admin) return null;
+  if (!admin) return { error: "invalid_credentials" };
   const valid = await bcrypt.compare(password, admin.password);
-  if (!valid) return null;
+  if (!valid) return { error: "invalid_credentials" };
+  if (!admin.isActive) return { error: "user_disabled" };
+
+  const effective = computeEffectiveAccess(admin, admin.role);
+  if (effective.mcpAccess === "none") {
+    return { error: "mcp_access_denied" };
+  }
+
   return { id: admin.id, email: admin.email, name: admin.name };
 }
 

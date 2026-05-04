@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { createMcpServer } from "@/lib/mcp/server";
-import { verifyAccessToken, cleanupExpiredOAuth } from "@/lib/mcp/oauth-store";
+import { resolveTokenAccess, cleanupExpiredOAuth } from "@/lib/mcp/oauth-store";
+import { canUseMcpTool, type EffectiveAccess } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-async function extractAuthInfo(
+async function authenticate(
   request: NextRequest,
-): Promise<{ error?: Response }> {
+): Promise<{ effective?: EffectiveAccess; error?: Response }> {
   const auth = request.headers.get("authorization");
   if (!auth || !auth.startsWith("Bearer ")) {
     return {
@@ -30,18 +31,26 @@ async function extractAuthInfo(
   }
 
   try {
-    await verifyAccessToken(auth.slice(7));
-    return {};
-  } catch {
+    const { effective } = await resolveTokenAccess(auth.slice(7));
+    return { effective };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unauthorized";
+    const isAccessDenied =
+      message.includes("MCP access") || message.includes("disabled");
     return {
       error: new Response(
         JSON.stringify({
           jsonrpc: "2.0",
-          error: { code: -32001, message: "Unauthorized: Invalid or expired token" },
+          error: {
+            code: isAccessDenied ? -32002 : -32001,
+            message: isAccessDenied
+              ? `Forbidden: ${message}`
+              : "Unauthorized: Invalid or expired token",
+          },
           id: null,
         }),
         {
-          status: 401,
+          status: isAccessDenied ? 403 : 401,
           headers: {
             "Content-Type": "application/json",
             "WWW-Authenticate": "Bearer",
@@ -53,8 +62,8 @@ async function extractAuthInfo(
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await extractAuthInfo(request);
-  if (error) return error;
+  const { effective, error } = await authenticate(request);
+  if (error || !effective) return error!;
 
   if (Math.random() < 0.01) {
     cleanupExpiredOAuth().catch(() => {});
@@ -66,7 +75,9 @@ export async function POST(request: NextRequest) {
       enableJsonResponse: true,
     });
 
-    const server = createMcpServer();
+    const server = createMcpServer({
+      toolFilter: (toolName) => canUseMcpTool(effective, toolName),
+    });
     await server.connect(transport);
 
     const response = await transport.handleRequest(request);
@@ -88,7 +99,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const { error } = await extractAuthInfo(request);
+  const { error } = await authenticate(request);
   if (error) return error;
 
   return new Response(
@@ -106,7 +117,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { error } = await extractAuthInfo(request);
+  const { error } = await authenticate(request);
   if (error) return error;
 
   return new Response(null, { status: 200 });
