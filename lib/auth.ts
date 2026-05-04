@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 import { computeEffectiveAccess } from "./permissions";
+import { ensureUserHasRole } from "./team-bootstrap";
 
 const devAuthSecret =
   process.env.NODE_ENV === "production"
@@ -35,14 +36,18 @@ export const authOptions: NextAuthOptions = {
           }
           const isValid = await bcrypt.compare(credentials.password, adminUser.password);
           if (isValid) {
-            const effective = computeEffectiveAccess(adminUser, adminUser.role);
+            // Self-heal: if this user has no role and there's no Owner yet
+            // (pre-teams-feature install), promote them to Owner.
+            const refreshed =
+              (await ensureUserHasRole(adminUser.id)) ?? adminUser;
+            const effective = computeEffectiveAccess(refreshed, refreshed.role);
             return {
-              id: adminUser.id,
-              email: adminUser.email,
-              name: adminUser.name,
+              id: refreshed.id,
+              email: refreshed.email,
+              name: refreshed.name,
               role: "admin" as const,
-              teamRoleId: adminUser.roleId ?? null,
-              teamRoleName: adminUser.role?.name ?? null,
+              teamRoleId: refreshed.roleId ?? null,
+              teamRoleName: refreshed.role?.name ?? null,
               isOwner: effective.isOwner,
               permissions: Array.from(effective.permissions),
             };
@@ -94,13 +99,16 @@ export const authOptions: NextAuthOptions = {
         token.permissions = user.permissions ?? [];
       }
 
-      // Refresh team-role/permissions from DB on session update or every ~60s
-      // so role changes propagate without forcing re-login.
-      if (trigger === "update" && token?.id && token.role === "admin") {
-        const fresh = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          include: { role: true },
-        });
+      // Refresh from DB when:
+      //  - explicit session update() call
+      //  - admin token is missing the new permissions field (pre-teams session)
+      const needsRefresh =
+        token?.id &&
+        token.role === "admin" &&
+        (trigger === "update" || !Array.isArray(token.permissions));
+
+      if (needsRefresh) {
+        const fresh = await ensureUserHasRole(token.id as string);
         if (fresh) {
           const effective = computeEffectiveAccess(fresh, fresh.role);
           token.teamRoleId = fresh.roleId ?? null;

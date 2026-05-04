@@ -91,15 +91,23 @@ export default function AdminLayout({
     return <>{children}</>;
   }
 
-  const isOwner = session?.user?.isOwner;
-  const permissions = session?.user?.permissions;
+  // Pre-teams-feature sessions don't carry a permissions array yet. The JWT
+  // callback will refresh it on the next request, but until that propagates we
+  // grant the full nav to any admin so they're never locked out of their own
+  // dashboard. Once `permissions` is populated, fine-grained gating kicks in.
+  const sessionUser = session?.user;
+  const hasTeamPermissionsLoaded =
+    sessionUser?.role === "admin" && Array.isArray(sessionUser.permissions);
+  const isOwner = sessionUser?.isOwner;
+  const permissions = sessionUser?.permissions;
 
   const visibleNavigation = navigation
     .map((item) => {
+      if (!hasTeamPermissionsLoaded) {
+        return item;
+      }
       const children = item.children?.filter((c) => permitted(isOwner, permissions, c.permission));
       const itemAllowed = permitted(isOwner, permissions, item.permission);
-      // If a parent has children, only show it when it has any visible child OR
-      // the parent itself doesn't require a permission.
       if (item.children) {
         if (!children || children.length === 0) return null;
         return { ...item, children };
