@@ -1,0 +1,349 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Client {
+  id              String          @id @default(cuid())
+  name            String
+  email           String?         @unique
+  password        String
+  slug            String          @unique
+  packageType     String          @default("buyer") // buyer, seller
+  projectStatus   String          @default("Getting started")
+  interestSummary String?
+  sellerReport    String?
+  isActive        Boolean         @default(true)
+  isPublic        Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  photos          Photo[]
+  listings        ClientListing[]
+}
+
+model Photo {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  url       String
+  blobKey   String
+  filename  String
+  width     Int?
+  height    Int?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+model PortfolioPhoto {
+  id        String   @id @default(cuid())
+  url       String
+  blobKey   String
+  filename  String
+  caption   String?
+  width     Int?
+  height    Int?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Listing {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  address     String
+  neighborhood String?
+  city        String?
+  municipality String?
+  state       String?
+  postalCode  String?
+  country     String?  @default("Mexico")
+  price       String
+  priceAmount Float?
+  priceCurrency String @default("USD") // USD, MXN
+  beds        Int?
+  baths       Float?
+  squareFeet  Int?
+  lotSize     String?
+  latitude    Float?
+  longitude   Float?
+  status      String   @default("active") // active, pending, sold, draft
+  description String?
+  imageUrl    String?
+  videoUrl    String?
+  gallery     Json?
+  agentName   String?
+  agentTitle  String?
+  agentEmail  String?
+  agentPhone  String?
+  agentWhatsapp String?
+  agentPhotoUrl String?
+  facebookUrl String?
+  instagramUrl String?
+  isFeatured  Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clients     ClientListing[]
+  socialPosts SocialPost[]
+
+  @@index([status])
+  @@index([isFeatured, order])
+}
+
+model SocialPost {
+  id              String   @id @default(cuid())
+  listingId       String?
+  listing         Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  platform        String
+  status          String   @default("draft") // draft, approved, published, archived
+  caption         String
+  hashtags        String[] @default([])
+  mediaUrls       String[] @default([])
+  targetPageId    String?
+  targetAccountId String?
+  publishedUrl    String?
+  scheduledFor    DateTime?
+  publishedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([listingId])
+  @@index([platform, status])
+}
+
+model MetaConnection {
+  id                  String   @id @default(cuid())
+  providerUserId      String?
+  providerUserName    String?
+  accessToken         String
+  tokenType           String?
+  expiresAt           DateTime?
+  scopes              String[] @default([])
+  pages               Json?
+  instagramAccounts   Json?
+  selectedPageId      String?
+  selectedInstagramId String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([providerUserId])
+}
+
+model ClientListing {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  note      String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, listingId])
+  @@index([clientId, order])
+  @@index([listingId])
+}
+
+model SiteContent {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model ContactSubmission {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  eventType   String?
+  eventDate   String?
+  message     String
+  status      String   @default("new") // new, read, replied, archived
+  response    String?
+  respondedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model TrackingEvent {
+  id          String   @id @default(cuid())
+  eventName   String
+  path        String?
+  source      String?  // public, client, admin, api
+  sessionId   String?
+  clientId    String?
+  listingId   String?
+  listingSlug String?
+  metadata    Json?
+  userAgent   String?
+  ipHash      String?
+  createdAt   DateTime @default(now())
+
+  @@index([eventName, createdAt])
+  @@index([clientId, createdAt])
+  @@index([listingId, createdAt])
+  @@index([listingSlug, createdAt])
+  @@index([createdAt])
+}
+
+model ContentPost {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  title           String
+  description     String?
+  excerpt         String?
+  category        String?
+  body            String
+  authorName      String?
+  imageUrl        String?
+  status          String    @default("draft")
+  metaTitle       String?
+  metaDescription String?
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  name        String
+  role        String?
+  quote       String
+  location    String?
+  rating      Int?
+  imageUrl    String?
+  status      String   @default("published")
+  isFeatured  Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, isFeatured, order])
+}
+
+model RedirectRule {
+  id             String   @id @default(cuid())
+  sourcePath     String   @unique
+  destinationUrl String
+  statusCode     Int      @default(308)
+  preserveQuery  Boolean  @default(true)
+  isActive       Boolean  @default(true)
+  notes          String?
+  hitCount       Int      @default(0)
+  lastHitAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isActive, sourcePath])
+}
+
+model SeoKeyword {
+  id           String             @id @default(cuid())
+  keyword      String
+  locale       String             @default("en-US")
+  market       String?
+  device       String             @default("desktop")
+  targetUrl    String?
+  priority     Int                @default(0)
+  notes        String?
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  rankSnapshots SeoRankSnapshot[]
+
+  @@unique([keyword, locale, market, device])
+  @@index([isActive, priority])
+}
+
+model SeoRankSnapshot {
+  id           String     @id @default(cuid())
+  keywordId    String
+  keyword      SeoKeyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  searchEngine String     @default("google")
+  device       String     @default("desktop")
+  location     String?
+  rank         Int?
+  url          String?
+  title        String?
+  checkedAt    DateTime   @default(now())
+  notes        String?
+  metadata     Json?
+
+  @@index([keywordId, checkedAt])
+  @@index([searchEngine, device, checkedAt])
+  @@index([rank])
+}
+
+// ---------------------------------------------------------------------------
+// MCP OAuth — persisted state for serverless functions
+// ---------------------------------------------------------------------------
+
+model McpOAuthClient {
+  id                      String   @id @default(cuid())
+  clientId                String   @unique
+  clientSecret            String?
+  redirectUris            String[]
+  tokenEndpointAuthMethod String   @default("client_secret_post")
+  grantTypes              String[] @default(["authorization_code", "refresh_token"])
+  responseTypes           String[] @default(["code"])
+  clientName              String?
+  issuedAt                DateTime @default(now())
+}
+
+model McpOAuthPendingAuth {
+  id        String   @id @default(cuid())
+  clientId  String
+  params    Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+model McpOAuthCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  clientId  String
+  adminId   String
+  params    Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+model McpOAuthToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  type      String   // "access" or "refresh"
+  clientId  String
+  adminId   String
+  scopes    String[]
+  resource  String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([type, token])
+}

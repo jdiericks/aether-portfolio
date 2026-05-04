@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "Listing" ADD COLUMN "priceCurrency" TEXT NOT NULL DEFAULT 'USD';
+ALTER TABLE "Listing" ADD COLUMN "neighborhood" TEXT;
+ALTER TABLE "Listing" ADD COLUMN "municipality" TEXT;
+ALTER TABLE "Listing" ADD COLUMN "postalCode" TEXT;
+ALTER TABLE "Listing" ADD COLUMN "country" TEXT NOT NULL DEFAULT 'MX';
+ALTER TABLE "Listing" ADD COLUMN "latitude" DOUBLE PRECISION;
+ALTER TABLE "Listing" ADD COLUMN "longitude" DOUBLE PRECISION;

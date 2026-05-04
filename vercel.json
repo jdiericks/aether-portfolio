@@ -1,0 +1,41 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "functions": {
+    "app/api/mcp/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/mcp/oauth/authorize/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/mcp/oauth/authorize/callback/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/mcp/oauth/token/route.ts": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/.well-known/oauth-authorization-server",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS" },
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/api/mcp/:path*",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization, Mcp-Session-Id, Mcp-Protocol-Version"
+        }
+      ]
+    }
+  ]
+}
