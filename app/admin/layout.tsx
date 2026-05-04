@@ -20,7 +20,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Users, Globe, Home, Link2, LogOut, Building2, MessageSquare, Settings, Share2, Menu, BarChart3, FileText, Star, Route, ChevronDown, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Users, Globe, Home, Link2, LogOut, Building2, MessageSquare, Settings, Share2, Menu, BarChart3, FileText, Star, Route, ChevronDown, ShieldCheck, ShieldAlert, Sparkles } from "lucide-react";
 import { permissionForAdminPath } from "@/lib/route-permissions";
 
 type NavChild = {
@@ -50,6 +50,7 @@ const navigation: NavItem[] = [
     href: "/admin/website",
     icon: Globe,
     children: [
+      { name: "Branding", href: "/admin/branding", icon: Sparkles, permission: "website.manage" },
       { name: "Website Settings", href: "/admin/website", icon: Globe, permission: "website.manage" },
       { name: "Content", href: "/admin/content", icon: FileText, permission: "content.view" },
       { name: "Testimonials", href: "/admin/testimonials", icon: Star, permission: "testimonials.manage" },

@@ -13,6 +13,7 @@ export const ADMIN_PAGE_PERMISSIONS: { prefix: string; permission: PermissionKey
   { prefix: "/admin/inquiries", permission: "inquiries.view" },
   { prefix: "/admin/clients", permission: "clients.view" },
   { prefix: "/admin/team", permission: "team.view" },
+  { prefix: "/admin/branding", permission: "website.manage" },
   { prefix: "/admin/website", permission: "website.manage" },
   { prefix: "/admin/content", permission: "content.view" },
   { prefix: "/admin/testimonials", permission: "testimonials.manage" },
@@ -85,6 +86,7 @@ const ADMIN_API_RULES: ApiRule[] = [
   { prefix: "/api/admin/insights", byMethod: { GET: "insights.view" }, defaultPermission: "insights.view" },
   { prefix: "/api/admin/account", byMethod: {}, defaultPermission: "dashboard.view" },
   { prefix: "/api/admin/team", byMethod: { GET: "team.view" }, defaultPermission: "team.manage" },
+  { prefix: "/api/admin/branding", byMethod: {}, defaultPermission: "website.manage" },
 
   // Integrations
   { prefix: "/api/meta", byMethod: {}, defaultPermission: "integrations.manage" },

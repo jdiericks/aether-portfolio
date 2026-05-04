@@ -131,6 +131,12 @@ export const SITE_CONTENT_DEFAULTS: Record<string, string> = {
   brand_logo_padding: "0px",
   brand_header_show_text: "true",
   brand_favicon_url: "",
+
+  // White-label / "Powered by" — surfaced from /admin/branding
+  branding_product_name: "Aether",
+  branding_show_powered_by: "true",
+  branding_powered_by_text: "Powered by Aether",
+  branding_powered_by_url: "https://aether.systems",
   footer_tagline: "Aether — Run your business by talking to it.",
   footer_legal_entity: "Aether is a product of CTRL ALT DEFEAT LLC.",
   footer_location: "",

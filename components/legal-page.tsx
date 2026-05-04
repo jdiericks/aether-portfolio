@@ -1,4 +1,4 @@
-import { Footer } from "@/components/landing/footer";
+import { Footer, brandingFooterProps } from "@/components/landing/footer";
 import { Navbar } from "@/components/landing/navbar";
 import { sanitizeRichHtml } from "@/lib/sanitize-html";
 import type { SiteContentMap } from "@/lib/site-content";
@@ -35,6 +35,7 @@ export function LegalPage({ title, body, content }: LegalPageProps) {
         />
       </main>
       <Footer
+        {...brandingFooterProps(content)}
         brandName={content.brand_name}
         brandSubtitle={content.brand_subtitle}
         logoUrl={content.brand_logo_url}

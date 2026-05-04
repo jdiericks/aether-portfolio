@@ -9,7 +9,7 @@ import { ProofSection } from "@/components/landing/aether/proof-section";
 import { PricingSection } from "@/components/landing/aether/pricing-section";
 import { AboutSection } from "@/components/landing/aether/about-section";
 import { AuditSection } from "@/components/landing/aether/audit-section";
-import { Footer } from "@/components/landing/footer";
+import { Footer, brandingFooterProps } from "@/components/landing/footer";
 import { LatestPostSection } from "@/components/landing/latest-post-section";
 import { Navbar } from "@/components/landing/navbar";
 import { JsonLd } from "@/components/schema-json-ld";
@@ -256,6 +256,7 @@ export default async function HomePage() {
         />
       </main>
       <Footer
+        {...brandingFooterProps(content)}
         brandName={brandName}
         brandSubtitle={content.brand_subtitle}
         tagline={content.footer_tagline}
