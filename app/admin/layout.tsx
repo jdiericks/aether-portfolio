@@ -20,7 +20,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Users, Globe, Home, Link2, LogOut, Building2, MessageSquare, Settings, Share2, Menu, BarChart3, FileText, Star, Route, ChevronDown, ShieldCheck } from "lucide-react";
+import { Users, Globe, Home, Link2, LogOut, Building2, MessageSquare, Settings, Share2, Menu, BarChart3, FileText, Star, Route, ChevronDown, ShieldCheck, ShieldAlert } from "lucide-react";
+import { permissionForAdminPath } from "@/lib/route-permissions";
 
 type NavChild = {
   name: string;
@@ -115,6 +116,13 @@ export default function AdminLayout({
       return itemAllowed ? item : null;
     })
     .filter((item): item is NavItem => item != null);
+
+  // Page-level access check. Once the session has loaded permissions, deny
+  // access to any admin page whose required permission the user is missing.
+  const requiredPagePermission = permissionForAdminPath(pathname);
+  const pageAllowed =
+    !hasTeamPermissionsLoaded ||
+    permitted(isOwner, permissions, requiredPagePermission ?? undefined);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -275,8 +283,48 @@ export default function AdminLayout({
         </div>
       </nav>
       <main className="pt-16">
-        <div className="p-6 lg:p-8">{children}</div>
+        <div className="p-6 lg:p-8">
+          {pageAllowed ? (
+            children
+          ) : (
+            <AccessDenied permission={requiredPagePermission} />
+          )}
+        </div>
       </main>
+    </div>
+  );
+}
+
+function AccessDenied({ permission }: { permission: string | null }) {
+  return (
+    <div className="max-w-xl mx-auto mt-12 rounded-lg border bg-background p-8 text-center">
+      <div className="flex justify-center mb-4">
+        <div className="rounded-full bg-destructive/10 p-3 text-destructive">
+          <ShieldAlert className="h-6 w-6" />
+        </div>
+      </div>
+      <h2 className="text-lg font-semibold mb-2">Access denied</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        Your role does not include the permission required to view this page.
+        {permission ? (
+          <>
+            {" "}
+            Required permission:{" "}
+            <code className="font-mono text-xs">{permission}</code>.
+          </>
+        ) : null}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Contact a team owner if you think this is a mistake.
+      </p>
+      <div className="mt-6">
+        <Link
+          href="/admin"
+          className="text-sm font-medium underline-offset-4 hover:underline"
+        >
+          Back to dashboard
+        </Link>
+      </div>
     </div>
   );
 }
