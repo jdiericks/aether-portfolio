@@ -8,12 +8,81 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  password        String
+  name            String
+  isActive        Boolean  @default(true)
+  roleId          String?
+  role            Role?    @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  // MCP access overrides at the user level. When mcpAccess is "inherit",
+  // the user's role determines MCP access. Otherwise this overrides the role.
+  mcpAccess       String   @default("inherit") // inherit | none | all | scoped
+  mcpAllowedTools String[] @default([])
+  invitedById     String?
+  invitedBy       User?    @relation("UserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitedUsers    User[]   @relation("UserInvites")
+  // Two-factor auth (TOTP). When totpEnabled is true the credentials login
+  // flow requires a 6-digit code or a recovery code from the recoveryCodes
+  // list. Recovery codes are stored as bcrypt hashes (one entry per code).
+  totpSecret      String?
+  totpEnabled     Boolean  @default(false)
+  recoveryCodes   String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  auditLogs       AuditLog[] @relation("AuditLogActor")
+
+  @@index([roleId])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  // Actor (admin User) — null for system-generated events.
+  actorId      String?
+  actor        User?    @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+  // Snapshot of the actor's name + email at log time so deleted users still
+  // appear meaningfully in the audit history.
+  actorName    String?
+  actorEmail   String?
+  // Action key, e.g. "team.user.invite", "branding.update", "auth.login.success".
+  action       String
+  // Optional category for filtering in the UI (team, branding, auth, etc.).
+  category     String   @default("general")
+  // Subject of the action — entity type + id, e.g. "user", "<userId>".
+  entityType   String?
+  entityId     String?
+  // Human-readable summary, shown in the audit log table.
+  summary      String
+  // Structured details — diff, previous values, request metadata.
+  metadata     Json?
+  // Request context.
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([category, createdAt])
+  @@index([action, createdAt])
+}
+
+model Role {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  // True for built-in roles that cannot be deleted (Owner role can't be edited either).
+  isSystem        Boolean  @default(false)
+  // Owner role implicitly has all permissions and full MCP access regardless of fields below.
+  isOwner         Boolean  @default(false)
+  // List of permission keys. See lib/permissions.ts for the canonical list.
+  permissions     String[] @default([])
+  // MCP access for the role: none | all | scoped
+  mcpAccess       String   @default("none")
+  // When mcpAccess = "scoped", the list of MCP tool names the role can use.
+  mcpAllowedTools String[] @default([])
+  users           User[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Client {

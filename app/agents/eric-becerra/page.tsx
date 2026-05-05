@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
-import { Footer } from "@/components/landing/footer";
+import { Footer, brandingFooterProps } from "@/components/landing/footer";
 import { Navbar } from "@/components/landing/navbar";
 import { Button } from "@/components/ui/button";
 import { JsonLd } from "@/components/schema-json-ld";
@@ -169,6 +169,7 @@ export default async function EricBecerraPage() {
         </section>
       </main>
       <Footer
+        {...brandingFooterProps(content)}
         brandName={content.brand_name}
         brandSubtitle={content.brand_subtitle}
         logoUrl={content.brand_logo_url}

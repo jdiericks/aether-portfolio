@@ -2,6 +2,7 @@ import { withAuth } from "next-auth/middleware";
 import type { NextRequestWithAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import { shouldSkipRedirectLookup } from "@/lib/redirects";
+import { permissionForApiRoute } from "@/lib/route-permissions";
 
 async function resolveRedirect(req: NextRequestWithAuth) {
   const pathWithSearch = `${req.nextUrl.pathname}${req.nextUrl.search}`;
@@ -59,6 +60,30 @@ export default withAuth(
           return NextResponse.redirect(new URL("/admin", req.url));
         }
         return NextResponse.redirect(new URL("/login", req.url));
+      }
+    }
+
+    // Permission-based gating for admin API routes. We only enforce when:
+    //  - the user is an admin (clients are blocked elsewhere)
+    //  - the route is mapped to a permission in lib/route-permissions
+    //  - the JWT carries a permissions array (post-teams sessions). Pre-teams
+    //    sessions skip this check and rely on the JWT callback to refresh
+    //    permissions on the next request.
+    if (
+      path.startsWith("/api/") &&
+      token?.role === "admin" &&
+      Array.isArray(token.permissions)
+    ) {
+      const required = permissionForApiRoute(path, req.method);
+      if (required) {
+        const isOwner = Boolean(token.isOwner);
+        const has = isOwner || token.permissions.includes(required);
+        if (!has) {
+          return NextResponse.json(
+            { error: "Forbidden", required },
+            { status: 403 },
+          );
+        }
       }
     }
 

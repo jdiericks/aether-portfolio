@@ -20,30 +20,61 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Users, Globe, Home, Link2, LogOut, Building2, MessageSquare, Settings, Share2, Menu, BarChart3, FileText, Star, Route, ChevronDown } from "lucide-react";
+import { Users, Globe, Home, Link2, LogOut, Building2, MessageSquare, Settings, Share2, Menu, BarChart3, FileText, Star, Route, ChevronDown, ShieldCheck, ShieldAlert, Sparkles, Mail, History } from "lucide-react";
+import { permissionForAdminPath } from "@/lib/route-permissions";
 
-const navigation = [
-  { name: "Dashboard", href: "/admin", icon: Home },
-  { name: "Properties", href: "/admin/listings", icon: Building2 },
-  { name: "Social", href: "/admin/social-posts", icon: Share2 },
-  { name: "Inquiries", href: "/admin/inquiries", icon: MessageSquare },
-  { name: "Clients", href: "/admin/clients", icon: Users },
+type NavChild = {
+  name: string;
+  href: string;
+  icon: typeof Home;
+  permission?: string;
+};
+
+type NavItem = {
+  name: string;
+  href: string;
+  icon: typeof Home;
+  permission?: string;
+  children?: NavChild[];
+};
+
+const navigation: NavItem[] = [
+  { name: "Dashboard", href: "/admin", icon: Home, permission: "dashboard.view" },
+  { name: "Properties", href: "/admin/listings", icon: Building2, permission: "listings.view" },
+  { name: "Social", href: "/admin/social-posts", icon: Share2, permission: "social.view" },
+  { name: "Inquiries", href: "/admin/inquiries", icon: MessageSquare, permission: "inquiries.view" },
+  { name: "Clients", href: "/admin/clients", icon: Users, permission: "clients.view" },
+  { name: "Team", href: "/admin/team", icon: ShieldCheck, permission: "team.view" },
   {
     name: "Website",
     href: "/admin/website",
     icon: Globe,
     children: [
-      { name: "Website Settings", href: "/admin/website", icon: Globe },
-      { name: "Content", href: "/admin/content", icon: FileText },
-      { name: "Testimonials", href: "/admin/testimonials", icon: Star },
-      { name: "Insights", href: "/admin/insights", icon: BarChart3 },
-      { name: "Redirects", href: "/admin/redirects", icon: Route },
-      { name: "Integrations", href: "/admin/integrations", icon: Link2 },
+      { name: "Branding", href: "/admin/branding", icon: Sparkles, permission: "website.manage" },
+      { name: "Hero", href: "/admin/hero", icon: Sparkles, permission: "website.manage" },
+      { name: "Website Settings", href: "/admin/website", icon: Globe, permission: "website.manage" },
+      { name: "Content", href: "/admin/content", icon: FileText, permission: "content.view" },
+      { name: "Testimonials", href: "/admin/testimonials", icon: Star, permission: "testimonials.manage" },
+      { name: "Insights", href: "/admin/insights", icon: BarChart3, permission: "insights.view" },
+      { name: "Redirects", href: "/admin/redirects", icon: Route, permission: "redirects.manage" },
+      { name: "Email", href: "/admin/email", icon: Mail, permission: "integrations.manage" },
+      { name: "Integrations", href: "/admin/integrations", icon: Link2, permission: "integrations.manage" },
+      { name: "Audit log", href: "/admin/audit-log", icon: History, permission: "team.view" },
     ],
   },
 ];
 
-function isNavItemActive(pathname: string, item: (typeof navigation)[number]) {
+function permitted(
+  isOwner: boolean | undefined,
+  permissions: string[] | undefined,
+  permission?: string,
+) {
+  if (!permission) return true;
+  if (isOwner) return true;
+  return (permissions ?? []).includes(permission);
+}
+
+function isNavItemActive(pathname: string, item: NavItem) {
   if (pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))) {
     return true;
   }
@@ -65,6 +96,38 @@ export default function AdminLayout({
     return <>{children}</>;
   }
 
+  // Pre-teams-feature sessions don't carry a permissions array yet. The JWT
+  // callback will refresh it on the next request, but until that propagates we
+  // grant the full nav to any admin so they're never locked out of their own
+  // dashboard. Once `permissions` is populated, fine-grained gating kicks in.
+  const sessionUser = session?.user;
+  const hasTeamPermissionsLoaded =
+    sessionUser?.role === "admin" && Array.isArray(sessionUser.permissions);
+  const isOwner = sessionUser?.isOwner;
+  const permissions = sessionUser?.permissions;
+
+  const visibleNavigation = navigation
+    .map((item) => {
+      if (!hasTeamPermissionsLoaded) {
+        return item;
+      }
+      const children = item.children?.filter((c) => permitted(isOwner, permissions, c.permission));
+      const itemAllowed = permitted(isOwner, permissions, item.permission);
+      if (item.children) {
+        if (!children || children.length === 0) return null;
+        return { ...item, children };
+      }
+      return itemAllowed ? item : null;
+    })
+    .filter((item): item is NavItem => item != null);
+
+  // Page-level access check. Once the session has loaded permissions, deny
+  // access to any admin page whose required permission the user is missing.
+  const requiredPagePermission = permissionForAdminPath(pathname);
+  const pageAllowed =
+    !hasTeamPermissionsLoaded ||
+    permitted(isOwner, permissions, requiredPagePermission ?? undefined);
+
   return (
     <div className="min-h-screen bg-muted/30">
       <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-background">
@@ -82,7 +145,7 @@ export default function AdminLayout({
                     <SheetTitle>Admin Menu</SheetTitle>
                   </SheetHeader>
                   <div className="flex flex-col gap-1 p-4">
-                    {navigation.map((item) => {
+                    {visibleNavigation.map((item) => {
                       const Icon = item.icon;
                       const isActive = isNavItemActive(pathname, item);
                       return (
@@ -133,7 +196,7 @@ export default function AdminLayout({
                 <span className="font-semibold">Real Estate Admin</span>
               </Link>
               <div className="hidden sm:flex sm:gap-1">
-                {navigation.map((item) => {
+                {visibleNavigation.map((item) => {
                   const Icon = item.icon;
                   const isActive = isNavItemActive(pathname, item);
                   if (item.children) {
@@ -224,8 +287,48 @@ export default function AdminLayout({
         </div>
       </nav>
       <main className="pt-16">
-        <div className="p-6 lg:p-8">{children}</div>
+        <div className="p-6 lg:p-8">
+          {pageAllowed ? (
+            children
+          ) : (
+            <AccessDenied permission={requiredPagePermission} />
+          )}
+        </div>
       </main>
+    </div>
+  );
+}
+
+function AccessDenied({ permission }: { permission: string | null }) {
+  return (
+    <div className="max-w-xl mx-auto mt-12 rounded-lg border bg-background p-8 text-center">
+      <div className="flex justify-center mb-4">
+        <div className="rounded-full bg-destructive/10 p-3 text-destructive">
+          <ShieldAlert className="h-6 w-6" />
+        </div>
+      </div>
+      <h2 className="text-lg font-semibold mb-2">Access denied</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        Your role does not include the permission required to view this page.
+        {permission ? (
+          <>
+            {" "}
+            Required permission:{" "}
+            <code className="font-mono text-xs">{permission}</code>.
+          </>
+        ) : null}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Contact a team owner if you think this is a mistake.
+      </p>
+      <div className="mt-6">
+        <Link
+          href="/admin"
+          className="text-sm font-medium underline-offset-4 hover:underline"
+        >
+          Back to dashboard
+        </Link>
+      </div>
     </div>
   );
 }

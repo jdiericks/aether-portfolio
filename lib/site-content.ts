@@ -3,7 +3,12 @@ import { isUnavailablePrismaReadError } from "./prisma-errors";
 
 export const SITE_CONTENT_DEFAULTS: Record<string, string> = {
   // Hero
+  // hero_variant controls the layout. Valid values are listed in
+  // HERO_VARIANTS in components/landing/hero-variants/index.tsx.
+  // Defaults to "classic" — the original centered hero with background image.
+  hero_variant: "classic",
   hero_background_image: "",
+  hero_image_url: "",
   hero_tagline: "AI-Powered Business Systems",
   hero_title: "Aether",
   hero_subtitle: "Run your business by talking to it",
@@ -11,6 +16,13 @@ export const SITE_CONTENT_DEFAULTS: Record<string, string> = {
     "Aether is an AI-powered business system that manages your website, content, social media, and SEO — all through conversation. Built on the technical foundations Google actually rewards.",
   hero_cta_primary: "Get Your Free AI Readiness Audit",
   hero_cta_secondary: "See how it works",
+  hero_cta_primary_href: "#audit",
+  hero_cta_secondary_href: "#solution",
+  // For the latest-post-spotlight variant: when "true", show the most
+  // recently published blog post as the main hero feature.
+  hero_show_latest_post: "true",
+  hero_latest_post_label: "Latest insight",
+  hero_latest_post_cta: "Read article",
 
   // The Problem section
   problem_label: "Sound familiar?",
@@ -131,6 +143,21 @@ export const SITE_CONTENT_DEFAULTS: Record<string, string> = {
   brand_logo_padding: "0px",
   brand_header_show_text: "true",
   brand_favicon_url: "",
+
+  // White-label / "Powered by" — surfaced from /admin/branding
+  branding_product_name: "Aether",
+  branding_show_powered_by: "true",
+  branding_powered_by_text: "Powered by Aether",
+  branding_powered_by_url: "https://aether.systems",
+
+  // Email — surfaced from /admin/email
+  email_from_name: "",
+  email_from_address: "",
+  email_reply_to: "",
+  email_notification_recipient: "",
+  email_send_inquiry_notifications: "true",
+  email_send_audit_confirmations: "true",
+  email_send_team_invites: "true",
   footer_tagline: "Aether — Run your business by talking to it.",
   footer_legal_entity: "Aether is a product of CTRL ALT DEFEAT LLC.",
   footer_location: "",

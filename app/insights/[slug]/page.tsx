@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { getContentPostBySlug, getContentPosts } from "@/lib/content-hub";
 import { getSiteContent } from "@/lib/site-content";
 import { Navbar } from "@/components/landing/navbar";
-import { Footer } from "@/components/landing/footer";
+import { Footer, brandingFooterProps } from "@/components/landing/footer";
 import { JsonLd } from "@/components/schema-json-ld";
 
 interface ArticlePageProps {
@@ -82,6 +82,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         }}
       />
       <Footer
+        {...brandingFooterProps(content)}
         brandName={content.brand_name}
         brandSubtitle={content.brand_subtitle}
         logoUrl={content.brand_logo_url}

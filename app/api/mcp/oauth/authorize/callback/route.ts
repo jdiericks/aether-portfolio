@@ -35,21 +35,24 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const admin = await verifyAdminCredentials(email, password);
-  if (!admin) {
+  const result = await verifyAdminCredentials(email, password);
+  if ("error" in result) {
     const newPendingId = await createPendingAuth(
       pending.clientId,
       pending.params,
     );
-    const html = loginPage(
-      newPendingId,
-      callbackUrl,
-      "Invalid email or password.",
-    );
+    const message =
+      result.error === "mcp_access_denied"
+        ? "Your account does not have MCP access. Contact a team owner."
+        : result.error === "user_disabled"
+          ? "Your account is disabled."
+          : "Invalid email or password.";
+    const html = loginPage(newPendingId, callbackUrl, message);
     return new NextResponse(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   }
+  const admin = result;
 
   const client = await getOAuthClient(pending.clientId);
   if (!client) {

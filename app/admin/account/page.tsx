@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, User, Lock, Mail, CheckCircle } from "lucide-react";
+import { Loader2, User, Lock, Mail, CheckCircle, ShieldCheck, ShieldOff, Copy, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AccountPage() {
   const { data: session, status: authStatus, update: updateSession } = useSession();
@@ -197,6 +198,8 @@ export default function AccountPage() {
         </CardContent>
       </Card>
 
+      <TwoFactorSection />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -267,5 +270,283 @@ export default function AccountPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Two-factor auth section
+// ---------------------------------------------------------------------------
+
+interface AccountStatus {
+  totpEnabled: boolean;
+}
+
+function TwoFactorSection() {
+  const [status, setStatus] = useState<AccountStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Setup state
+  const [setupQr, setSetupQr] = useState<string | null>(null);
+  const [setupSecret, setSetupSecret] = useState<string | null>(null);
+  const [setupCode, setSetupCode] = useState("");
+  const [enabling, setEnabling] = useState(false);
+
+  // Recovery codes shown after enable / regenerate
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
+
+  // Disable state
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disabling, setDisabling] = useState(false);
+
+  const refresh = async () => {
+    try {
+      const res = await fetch("/api/admin/account");
+      const data = await res.json();
+      if (res.ok) {
+        setStatus({ totpEnabled: Boolean(data.totpEnabled) });
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const startSetup = async () => {
+    setEnabling(true);
+    try {
+      const res = await fetch("/api/admin/2fa/setup", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Setup failed");
+      setSetupQr(data.qrDataUri);
+      setSetupSecret(data.secret);
+      setSetupCode("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Setup failed");
+    } finally {
+      setEnabling(false);
+    }
+  };
+
+  const confirmEnable = async () => {
+    if (!setupCode || setupCode.length < 6) {
+      toast.error("Enter the 6-digit code from your authenticator app");
+      return;
+    }
+    setEnabling(true);
+    try {
+      const res = await fetch("/api/admin/2fa/enable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: setupCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Enable failed");
+      setRecoveryCodes(data.recoveryCodes ?? []);
+      setSetupQr(null);
+      setSetupSecret(null);
+      setSetupCode("");
+      toast.success("2FA enabled. Save your recovery codes!");
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Enable failed");
+    } finally {
+      setEnabling(false);
+    }
+  };
+
+  const disable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDisabling(true);
+    try {
+      const res = await fetch("/api/admin/2fa/disable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: disablePassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Disable failed");
+      setDisablePassword("");
+      toast.success("2FA disabled");
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Disable failed");
+    } finally {
+      setDisabling(false);
+    }
+  };
+
+  const regenerate = async () => {
+    if (!confirm("Generate new recovery codes? Old codes will stop working immediately.")) return;
+    setRegenerating(true);
+    try {
+      const res = await fetch("/api/admin/2fa/recovery-codes", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Regenerate failed");
+      setRecoveryCodes(data.recoveryCodes ?? []);
+      toast.success("New recovery codes generated. Save them!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Regenerate failed");
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const copyCodes = () => {
+    if (!recoveryCodes) return;
+    navigator.clipboard.writeText(recoveryCodes.join("\n")).then(
+      () => toast.success("Recovery codes copied to clipboard"),
+      () => toast.error("Copy failed"),
+    );
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5" />
+          Two-factor authentication
+        </CardTitle>
+        <CardDescription>
+          Add a second step at sign-in using an authenticator app (1Password, Google Authenticator, Authy, etc.).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {recoveryCodes && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-4 space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-900">
+                <strong>Save these recovery codes now.</strong> Each one can be used once if you lose access to your authenticator. You won&apos;t see them again.
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 font-mono text-sm bg-white border rounded p-3">
+              {recoveryCodes.map((code) => (
+                <div key={code}>{code}</div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={copyCodes}>
+                <Copy className="mr-2 h-4 w-4" /> Copy all
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setRecoveryCodes(null)}>
+                I&apos;ve saved them
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {status?.totpEnabled ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-md border bg-green-50 border-green-200 p-3 text-sm">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <div>
+                <div className="font-medium text-green-900">2FA is enabled</div>
+                <div className="text-green-800/80 text-xs">
+                  You&apos;ll be asked for a code from your authenticator app every time you sign in.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={regenerate}
+                disabled={regenerating}
+              >
+                {regenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Regenerate recovery codes
+              </Button>
+            </div>
+
+            <form onSubmit={disable} className="space-y-3 border-t pt-4">
+              <Label htmlFor="disable-password" className="flex items-center gap-2">
+                <ShieldOff className="h-4 w-4" />
+                Turn off 2FA
+              </Label>
+              <Input
+                id="disable-password"
+                type="password"
+                placeholder="Confirm your password"
+                value={disablePassword}
+                onChange={(e) => setDisablePassword(e.target.value)}
+                required
+              />
+              <Button type="submit" variant="destructive" size="sm" disabled={disabling}>
+                {disabling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Disable 2FA
+              </Button>
+            </form>
+          </div>
+        ) : setupQr ? (
+          <div className="space-y-4">
+            <div className="text-sm">
+              Scan this QR code with your authenticator app, then enter the 6-digit code it shows you.
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={setupQr} alt="2FA QR code" className="rounded border bg-white p-2 w-60 h-60" />
+            {setupSecret && (
+              <div className="text-xs text-muted-foreground">
+                Or enter this secret manually:{" "}
+                <code className="font-mono bg-muted px-1.5 py-0.5 rounded">{setupSecret}</code>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="setup-code">6-digit code</Label>
+              <Input
+                id="setup-code"
+                inputMode="numeric"
+                maxLength={6}
+                value={setupCode}
+                onChange={(e) => setSetupCode(e.target.value.replace(/\s+/g, ""))}
+                placeholder="123456"
+                className="font-mono"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={confirmEnable} disabled={enabling || setupCode.length < 6}>
+                {enabling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Verify and enable
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSetupQr(null);
+                  setSetupSecret(null);
+                  setSetupCode("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Once enabled, every sign-in will require a fresh code from your authenticator app.
+            </p>
+            <Button onClick={startSetup} disabled={enabling}>
+              {enabling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+              Enable 2FA
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

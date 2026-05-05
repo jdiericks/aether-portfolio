@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getSiteContent } from "@/lib/site-content";
-import { HeroSection } from "@/components/landing/hero-section";
+import { HeroDispatcher, heroDataFromContent } from "@/components/landing/hero-variants";
 import { ProblemSection } from "@/components/landing/aether/problem-section";
 import { SolutionSection } from "@/components/landing/aether/solution-section";
 import { IncludedSection } from "@/components/landing/aether/included-section";
@@ -9,7 +9,7 @@ import { ProofSection } from "@/components/landing/aether/proof-section";
 import { PricingSection } from "@/components/landing/aether/pricing-section";
 import { AboutSection } from "@/components/landing/aether/about-section";
 import { AuditSection } from "@/components/landing/aether/audit-section";
-import { Footer } from "@/components/landing/footer";
+import { Footer, brandingFooterProps } from "@/components/landing/footer";
 import { LatestPostSection } from "@/components/landing/latest-post-section";
 import { Navbar } from "@/components/landing/navbar";
 import { JsonLd } from "@/components/schema-json-ld";
@@ -167,16 +167,19 @@ export default async function HomePage() {
         showBrandText={content.brand_header_show_text !== "false"}
       />
       <main id="main-content" tabIndex={-1}>
-        <HeroSection
-          backgroundImage={content.hero_background_image}
-          tagline={content.hero_tagline}
-          title={content.hero_title}
-          subtitle={content.hero_subtitle}
-          description={content.hero_description}
-          ctaPrimary={content.hero_cta_primary}
-          ctaSecondary={content.hero_cta_secondary}
-          primaryHref="#audit"
-          secondaryHref="#solution"
+        <HeroDispatcher
+          {...heroDataFromContent(
+            content,
+            posts[0]
+              ? {
+                  title: posts[0].title,
+                  slug: posts[0].slug,
+                  excerpt: posts[0].excerpt || posts[0].description,
+                  category: posts[0].category,
+                  publishedAt: posts[0].publishedAt,
+                }
+              : null,
+          )}
         />
         <ProblemSection
           label={content.problem_label}
@@ -256,6 +259,7 @@ export default async function HomePage() {
         />
       </main>
       <Footer
+        {...brandingFooterProps(content)}
         brandName={brandName}
         brandSubtitle={content.brand_subtitle}
         tagline={content.footer_tagline}

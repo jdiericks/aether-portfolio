@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { isMissingTableError } from "@/lib/prisma-errors";
 import { getSiteContent } from "@/lib/site-content";
 import { Button } from "@/components/ui/button";
-import { Footer } from "@/components/landing/footer";
+import { Footer, brandingFooterProps } from "@/components/landing/footer";
 import { Navbar } from "@/components/landing/navbar";
 import { ListingInquiryForm } from "@/components/listing-inquiry-form";
 import { ListingMediaGallery } from "@/components/listing-media-gallery";
@@ -413,6 +413,7 @@ export default async function ListingDetailPage({
         </section>
       </main>
       <Footer
+        {...brandingFooterProps(content)}
         brandName={content.brand_name}
         brandSubtitle={content.brand_subtitle}
         logoUrl={content.brand_logo_url}

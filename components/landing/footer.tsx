@@ -11,6 +11,27 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+/**
+ * Builds the white-label "Powered by" props for the public footer from the
+ * SiteContent map. Pass the result via {...brandingFooterProps(content)} on
+ * every <Footer /> call site so the admin toggle in /admin/branding works
+ * site-wide.
+ */
+export function brandingFooterProps(content: Record<string, string | undefined | null>) {
+  const showPoweredBy = (content.branding_show_powered_by ?? "true") !== "false";
+  const poweredByText =
+    content.branding_powered_by_text ||
+    (content.branding_product_name
+      ? `Powered by ${content.branding_product_name}`
+      : "");
+  const poweredByUrl = content.branding_powered_by_url || "";
+  return {
+    showPoweredBy,
+    poweredByText,
+    poweredByUrl,
+  };
+}
+
 interface FooterProps {
   brandName?: string;
   brandSubtitle?: string;
@@ -38,6 +59,9 @@ interface FooterProps {
   showSitemapLink?: boolean;
   accessibilityUrl?: string;
   showAccessibilityLink?: boolean;
+  showPoweredBy?: boolean;
+  poweredByText?: string;
+  poweredByUrl?: string;
 }
 
 export function Footer({
@@ -67,6 +91,9 @@ export function Footer({
   showSitemapLink = true,
   accessibilityUrl = "/accessibility",
   showAccessibilityLink = true,
+  showPoweredBy = false,
+  poweredByText = "",
+  poweredByUrl = "",
 }: FooterProps) {
   const privacyLink = privacyUrl || privacyHref;
   const termsLink = termsUrl || termsHref;
@@ -212,6 +239,22 @@ export function Footer({
                 }. All rights reserved.`}
             </p>
             {legalEntity && <p>{legalEntity}</p>}
+            {showPoweredBy && poweredByText && (
+              <p className="text-xs opacity-70">
+                {poweredByUrl ? (
+                  <a
+                    href={poweredByUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:opacity-100"
+                  >
+                    {poweredByText}
+                  </a>
+                ) : (
+                  poweredByText
+                )}
+              </p>
+            )}
           </div>
         </div>
       </div>

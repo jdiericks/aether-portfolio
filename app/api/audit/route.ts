@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createTrackingEvent } from "@/lib/tracking";
+import {
+  sendAuditConfirmationEmail,
+  sendInquiryNotificationEmail,
+} from "@/lib/email-templates";
+import { getSiteContent } from "@/lib/site-content";
+import { getEmailBranding } from "@/lib/email";
 
 const MAX_TEXT_LENGTH = 5_000;
 const MAX_FIELD_LENGTH = 250;
@@ -80,6 +86,41 @@ export async function POST(request: Request) {
         hasStructuredData: cleanStructuredData || null,
       },
     });
+
+    // Fire-and-forget email notifications. Don't block the response on them
+    // and never fail the form submission if email is misconfigured.
+    void (async () => {
+      try {
+        const content = await getSiteContent();
+        const branding = await getEmailBranding();
+
+        if (content.email_send_audit_confirmations !== "false") {
+          await sendAuditConfirmationEmail({
+            to: cleanEmail,
+            recipientName: cleanName,
+          });
+        }
+
+        if (
+          content.email_send_inquiry_notifications !== "false" &&
+          branding.notificationEmail
+        ) {
+          const baseUrl =
+            process.env.NEXTAUTH_URL ||
+            new URL(request.url).origin.replace(/\/$/, "");
+          await sendInquiryNotificationEmail({
+            to: branding.notificationEmail,
+            inquiryName: cleanName,
+            inquiryEmail: cleanEmail,
+            inquiryEventType: cleanBusinessType || "AI Readiness Audit",
+            inquiryMessage: messageLines.join("\n"),
+            adminUrl: `${baseUrl}/admin/inquiries`,
+          });
+        }
+      } catch (err) {
+        console.error("[audit] notification email failed:", err);
+      }
+    })();
 
     return NextResponse.json(
       { success: true, id: submission.id },

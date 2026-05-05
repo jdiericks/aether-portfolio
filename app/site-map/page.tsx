@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { isMissingTableError } from "@/lib/prisma-errors";
 import { getSiteContent } from "@/lib/site-content";
-import { Footer } from "@/components/landing/footer";
+import { Footer, brandingFooterProps } from "@/components/landing/footer";
 import { Navbar } from "@/components/landing/navbar";
 
 export const dynamic = "force-dynamic";
@@ -110,6 +110,7 @@ export default async function SiteMapPage() {
         </div>
       </main>
       <Footer
+        {...brandingFooterProps(content)}
         brandName={content.brand_name}
         brandSubtitle={content.brand_subtitle}
         logoUrl={content.brand_logo_url}

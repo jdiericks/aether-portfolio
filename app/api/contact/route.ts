@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createTrackingEvent } from "@/lib/tracking";
+import { sendInquiryNotificationEmail } from "@/lib/email-templates";
+import { getSiteContent } from "@/lib/site-content";
+import { getEmailBranding } from "@/lib/email";
 
 const MAX_TEXT_LENGTH = 5_000;
 const MAX_FIELD_LENGTH = 250;
@@ -67,6 +70,31 @@ export async function POST(request: Request) {
         hasPhone: Boolean(cleanText(eventDate)),
       },
     });
+
+    void (async () => {
+      try {
+        const content = await getSiteContent();
+        const branding = await getEmailBranding();
+        if (
+          content.email_send_inquiry_notifications !== "false" &&
+          branding.notificationEmail
+        ) {
+          const baseUrl =
+            process.env.NEXTAUTH_URL ||
+            new URL(request.url).origin.replace(/\/$/, "");
+          await sendInquiryNotificationEmail({
+            to: branding.notificationEmail,
+            inquiryName: cleanName,
+            inquiryEmail: cleanEmail,
+            inquiryEventType: cleanText(eventType) || null,
+            inquiryMessage: `${listingContext}${cleanMessage}`,
+            adminUrl: `${baseUrl}/admin/inquiries`,
+          });
+        }
+      } catch (err) {
+        console.error("[contact] notification email failed:", err);
+      }
+    })();
 
     return NextResponse.json(
       { success: true, id: submission.id },
