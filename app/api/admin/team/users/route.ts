@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/admin-auth";
 import { Prisma } from "@prisma/client";
+import { sendTeamInviteEmail } from "@/lib/email-templates";
+import { getSiteContent } from "@/lib/site-content";
 
 const userSelect = {
   id: true,
@@ -81,6 +83,27 @@ export async function POST(request: Request) {
       },
       select: userSelect,
     });
+
+    // Fire off the invite email (best-effort; don't fail the API on email errors).
+    const sendInvites =
+      (await getSiteContent()).email_send_team_invites !== "false";
+    if (sendInvites) {
+      const baseUrl =
+        process.env.NEXTAUTH_URL ||
+        new URL(request.url).origin.replace(/\/$/, "");
+      const loginUrl = `${baseUrl}/login`;
+      sendTeamInviteEmail({
+        to: email,
+        recipientName: name,
+        roleName: user.role?.name ?? "Member",
+        inviterName: result.admin.name,
+        loginUrl,
+        temporaryPassword: password,
+      }).catch((err) => {
+        console.error("[team] invite email failed:", err);
+      });
+    }
+
     return NextResponse.json({ user }, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

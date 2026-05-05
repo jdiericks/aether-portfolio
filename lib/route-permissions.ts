@@ -14,6 +14,9 @@ export const ADMIN_PAGE_PERMISSIONS: { prefix: string; permission: PermissionKey
   { prefix: "/admin/clients", permission: "clients.view" },
   { prefix: "/admin/team", permission: "team.view" },
   { prefix: "/admin/branding", permission: "website.manage" },
+  { prefix: "/admin/hero", permission: "website.manage" },
+  { prefix: "/admin/email", permission: "integrations.manage" },
+  { prefix: "/admin/audit-log", permission: "team.view" },
   { prefix: "/admin/website", permission: "website.manage" },
   { prefix: "/admin/content", permission: "content.view" },
   { prefix: "/admin/testimonials", permission: "testimonials.manage" },
@@ -87,6 +90,10 @@ const ADMIN_API_RULES: ApiRule[] = [
   { prefix: "/api/admin/account", byMethod: {}, defaultPermission: "dashboard.view" },
   { prefix: "/api/admin/team", byMethod: { GET: "team.view" }, defaultPermission: "team.manage" },
   { prefix: "/api/admin/branding", byMethod: {}, defaultPermission: "website.manage" },
+  { prefix: "/api/admin/hero", byMethod: {}, defaultPermission: "website.manage" },
+  { prefix: "/api/admin/email", byMethod: {}, defaultPermission: "integrations.manage" },
+  { prefix: "/api/admin/audit-log", byMethod: {}, defaultPermission: "team.view" },
+  { prefix: "/api/admin/2fa", byMethod: {}, defaultPermission: "dashboard.view" },
 
   // Integrations
   { prefix: "/api/meta", byMethod: {}, defaultPermission: "integrations.manage" },

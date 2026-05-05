@@ -20,7 +20,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Users, Globe, Home, Link2, LogOut, Building2, MessageSquare, Settings, Share2, Menu, BarChart3, FileText, Star, Route, ChevronDown, ShieldCheck, ShieldAlert, Sparkles } from "lucide-react";
+import { Users, Globe, Home, Link2, LogOut, Building2, MessageSquare, Settings, Share2, Menu, BarChart3, FileText, Star, Route, ChevronDown, ShieldCheck, ShieldAlert, Sparkles, Mail, History } from "lucide-react";
 import { permissionForAdminPath } from "@/lib/route-permissions";
 
 type NavChild = {
@@ -51,12 +51,15 @@ const navigation: NavItem[] = [
     icon: Globe,
     children: [
       { name: "Branding", href: "/admin/branding", icon: Sparkles, permission: "website.manage" },
+      { name: "Hero", href: "/admin/hero", icon: Sparkles, permission: "website.manage" },
       { name: "Website Settings", href: "/admin/website", icon: Globe, permission: "website.manage" },
       { name: "Content", href: "/admin/content", icon: FileText, permission: "content.view" },
       { name: "Testimonials", href: "/admin/testimonials", icon: Star, permission: "testimonials.manage" },
       { name: "Insights", href: "/admin/insights", icon: BarChart3, permission: "insights.view" },
       { name: "Redirects", href: "/admin/redirects", icon: Route, permission: "redirects.manage" },
+      { name: "Email", href: "/admin/email", icon: Mail, permission: "integrations.manage" },
       { name: "Integrations", href: "/admin/integrations", icon: Link2, permission: "integrations.manage" },
+      { name: "Audit log", href: "/admin/audit-log", icon: History, permission: "team.view" },
     ],
   },
 ];

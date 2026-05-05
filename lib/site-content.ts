@@ -137,6 +137,15 @@ export const SITE_CONTENT_DEFAULTS: Record<string, string> = {
   branding_show_powered_by: "true",
   branding_powered_by_text: "Powered by Aether",
   branding_powered_by_url: "https://aether.systems",
+
+  // Email — surfaced from /admin/email
+  email_from_name: "",
+  email_from_address: "",
+  email_reply_to: "",
+  email_notification_recipient: "",
+  email_send_inquiry_notifications: "true",
+  email_send_audit_confirmations: "true",
+  email_send_team_invites: "true",
   footer_tagline: "Aether — Run your business by talking to it.",
   footer_legal_entity: "Aether is a product of CTRL ALT DEFEAT LLC.",
   footer_location: "",
