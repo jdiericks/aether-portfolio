@@ -2,6 +2,8 @@
 
 This project is a reusable real estate website platform, not just a one-off website build. Pricing should account for the value of the existing system, customization work, launch support, hosting, and ongoing maintenance.
 
+> Looking to price an **MCP add-on for a business that already has a website** (no rebuild)? See [`mcp-integration-service.md`](./mcp-integration-service.md).
+
 ## Baseline Costs
 
 - Initial software/tooling spend: about $204
