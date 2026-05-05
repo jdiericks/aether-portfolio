@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/admin-auth";
 import { Prisma } from "@prisma/client";
+import { recordAuditLog } from "@/lib/audit-log";
 
 interface Context {
   params: Promise<{ id: string }>;
@@ -140,6 +141,31 @@ export async function PATCH(request: Request, { params }: Context) {
       data,
       select: userSelect,
     });
+
+    const changes: string[] = [];
+    if (data.name) changes.push("name");
+    if (data.email) changes.push("email");
+    if (data.password) changes.push("password");
+    if (data.role) changes.push("role");
+    if (data.mcpAccess !== undefined) changes.push("mcpAccess");
+    if (data.mcpAllowedTools !== undefined) changes.push("mcpAllowedTools");
+    if (data.isActive !== undefined) changes.push("isActive");
+
+    await recordAuditLog({
+      actor: result.admin,
+      action: data.isActive === false ? "team.user.deactivate" : data.isActive === true ? "team.user.activate" : "team.user.update",
+      category: "team",
+      summary: data.isActive === false
+        ? `Deactivated ${user.name} <${user.email}>`
+        : data.isActive === true
+          ? `Activated ${user.name} <${user.email}>`
+          : `Updated ${user.name} <${user.email}> (${changes.join(", ") || "no changes"})`,
+      entityType: "user",
+      entityId: user.id,
+      metadata: { changedFields: changes },
+      request,
+    });
+
     return NextResponse.json({ user });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -184,5 +210,17 @@ export async function DELETE(_request: Request, { params }: Context) {
   }
 
   await prisma.user.delete({ where: { id } });
+
+  await recordAuditLog({
+    actor: result.admin,
+    action: "team.user.delete",
+    category: "team",
+    summary: `Removed ${target.name} <${target.email}> from the team`,
+    entityType: "user",
+    entityId: target.id,
+    metadata: { roleName: target.role?.name ?? null },
+    request: _request,
+  });
+
   return NextResponse.json({ ok: true });
 }

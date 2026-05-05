@@ -22,10 +22,48 @@ model User {
   invitedById     String?
   invitedBy       User?    @relation("UserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
   invitedUsers    User[]   @relation("UserInvites")
+  // Two-factor auth (TOTP). When totpEnabled is true the credentials login
+  // flow requires a 6-digit code or a recovery code from the recoveryCodes
+  // list. Recovery codes are stored as bcrypt hashes (one entry per code).
+  totpSecret      String?
+  totpEnabled     Boolean  @default(false)
+  recoveryCodes   String[] @default([])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  auditLogs       AuditLog[] @relation("AuditLogActor")
 
   @@index([roleId])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  // Actor (admin User) — null for system-generated events.
+  actorId      String?
+  actor        User?    @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+  // Snapshot of the actor's name + email at log time so deleted users still
+  // appear meaningfully in the audit history.
+  actorName    String?
+  actorEmail   String?
+  // Action key, e.g. "team.user.invite", "branding.update", "auth.login.success".
+  action       String
+  // Optional category for filtering in the UI (team, branding, auth, etc.).
+  category     String   @default("general")
+  // Subject of the action — entity type + id, e.g. "user", "<userId>".
+  entityType   String?
+  entityId     String?
+  // Human-readable summary, shown in the audit log table.
+  summary      String
+  // Structured details — diff, previous values, request metadata.
+  metadata     Json?
+  // Request context.
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([category, createdAt])
+  @@index([action, createdAt])
 }
 
 model Role {

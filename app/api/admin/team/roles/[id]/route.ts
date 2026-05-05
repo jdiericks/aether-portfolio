@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/admin-auth";
 import { ALL_PERMISSION_KEYS } from "@/lib/permissions";
 import { Prisma } from "@prisma/client";
+import { recordAuditLog, diffObjects } from "@/lib/audit-log";
 
 interface Context {
   params: Promise<{ id: string }>;
@@ -66,6 +67,21 @@ export async function PATCH(request: Request, { params }: Context) {
 
   try {
     const updated = await prisma.role.update({ where: { id }, data });
+    const diff = diffObjects(
+      role as unknown as Record<string, unknown>,
+      updated as unknown as Record<string, unknown>,
+      ["createdAt", "updatedAt"],
+    );
+    await recordAuditLog({
+      actor: result.admin,
+      action: "role.update",
+      category: "role",
+      summary: `Updated role "${updated.name}" (${Object.keys(diff).join(", ") || "no changes"})`,
+      entityType: "role",
+      entityId: updated.id,
+      metadata: { diff },
+      request,
+    });
     return NextResponse.json({ role: updated });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -103,5 +119,16 @@ export async function DELETE(_request: Request, { params }: Context) {
   }
 
   await prisma.role.delete({ where: { id } });
+
+  await recordAuditLog({
+    actor: result.admin,
+    action: "role.delete",
+    category: "role",
+    summary: `Deleted role "${role.name}"`,
+    entityType: "role",
+    entityId: role.id,
+    request: _request,
+  });
+
   return NextResponse.json({ ok: true });
 }

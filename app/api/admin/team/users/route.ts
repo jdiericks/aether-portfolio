@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/admin-auth";
 import { Prisma } from "@prisma/client";
 import { sendTeamInviteEmail } from "@/lib/email-templates";
 import { getSiteContent } from "@/lib/site-content";
+import { recordAuditLog } from "@/lib/audit-log";
 
 const userSelect = {
   id: true,
@@ -82,6 +83,22 @@ export async function POST(request: Request) {
         invitedById: result.admin.userId,
       },
       select: userSelect,
+    });
+
+    await recordAuditLog({
+      actor: result.admin,
+      action: "team.user.invite",
+      category: "team",
+      summary: `Invited ${user.name} <${user.email}> as ${user.role?.name ?? "no role"}`,
+      entityType: "user",
+      entityId: user.id,
+      metadata: {
+        email: user.email,
+        roleId: user.roleId,
+        roleName: user.role?.name ?? null,
+        mcpAccess: user.mcpAccess,
+      },
+      request,
     });
 
     // Fire off the invite email (best-effort; don't fail the API on email errors).

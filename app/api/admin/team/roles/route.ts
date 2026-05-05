@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/admin-auth";
 import { ALL_PERMISSION_KEYS } from "@/lib/permissions";
 import { Prisma } from "@prisma/client";
+import { recordAuditLog } from "@/lib/audit-log";
 
 export async function GET() {
   const result = await requirePermission("team.view");
@@ -56,6 +57,22 @@ export async function POST(request: Request) {
         isOwner: false,
       },
     });
+
+    await recordAuditLog({
+      actor: result.admin,
+      action: "role.create",
+      category: "role",
+      summary: `Created role "${role.name}"`,
+      entityType: "role",
+      entityId: role.id,
+      metadata: {
+        permissions: role.permissions,
+        mcpAccess: role.mcpAccess,
+        mcpAllowedTools: role.mcpAllowedTools,
+      },
+      request,
+    });
+
     return NextResponse.json({ role }, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

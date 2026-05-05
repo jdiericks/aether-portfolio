@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/admin-auth";
 import { SITE_CONTENT_DEFAULTS } from "@/lib/site-content";
+import { recordAuditLog } from "@/lib/audit-log";
 
 // Subset of SiteContent keys exposed by the focused Branding admin page.
 // Keep this list narrow — Branding is the "white-label essentials" view, not
@@ -90,6 +91,15 @@ export async function PATCH(request: Request) {
       }),
     ),
   );
+
+  await recordAuditLog({
+    actor: result.admin,
+    action: "branding.update",
+    category: "branding",
+    summary: `Updated branding (${updates.map((u) => u.key).join(", ")})`,
+    metadata: { keys: updates.map((u) => u.key) },
+    request,
+  });
 
   const content = await loadAllContent();
   return NextResponse.json({ branding: pickBranding(content) });
