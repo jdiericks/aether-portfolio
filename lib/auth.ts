@@ -4,6 +4,8 @@ import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 import { computeEffectiveAccess } from "./permissions";
 import { ensureUserHasRole } from "./team-bootstrap";
+import { consumeRecoveryCode, verifyTotpCode } from "./totp";
+import { recordAuditLog } from "./audit-log";
 
 const devAuthSecret =
   process.env.NODE_ENV === "production"
@@ -18,6 +20,9 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        // Optional second-factor code (TOTP or recovery code). Submitted on
+        // the login form's second step when the account has 2FA enabled.
+        totpCode: { label: "Authenticator code", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -36,6 +41,64 @@ export const authOptions: NextAuthOptions = {
           }
           const isValid = await bcrypt.compare(credentials.password, adminUser.password);
           if (isValid) {
+            // 2FA gate. If the user has 2FA enabled they must submit either a
+            // valid 6-digit TOTP code or a single-use recovery code.
+            if (adminUser.totpEnabled) {
+              const code = (credentials.totpCode || "").toString().trim();
+              if (!code) {
+                throw new Error("2FA_REQUIRED");
+              }
+
+              const isTotp = adminUser.totpSecret
+                ? verifyTotpCode(code, adminUser.totpSecret)
+                : false;
+              let used: "totp" | "recovery" | null = isTotp ? "totp" : null;
+
+              if (!isTotp) {
+                const remaining = await consumeRecoveryCode(
+                  code,
+                  adminUser.recoveryCodes ?? [],
+                );
+                if (remaining === null) {
+                  await recordAuditLog({
+                    actor: null,
+                    action: "auth.login.2fa_failure",
+                    category: "auth",
+                    summary: `Failed 2FA challenge for ${adminUser.email}`,
+                    entityType: "user",
+                    entityId: adminUser.id,
+                    metadata: { email: adminUser.email },
+                  });
+                  throw new Error("2FA_INVALID");
+                }
+                await prisma.user.update({
+                  where: { id: adminUser.id },
+                  data: { recoveryCodes: remaining },
+                });
+                used = "recovery";
+              }
+
+              await recordAuditLog({
+                actor: null,
+                action: "auth.login.success",
+                category: "auth",
+                summary: `${adminUser.name} signed in with 2FA (${used})`,
+                entityType: "user",
+                entityId: adminUser.id,
+                metadata: { email: adminUser.email, secondFactor: used },
+              });
+            } else {
+              await recordAuditLog({
+                actor: null,
+                action: "auth.login.success",
+                category: "auth",
+                summary: `${adminUser.name} signed in`,
+                entityType: "user",
+                entityId: adminUser.id,
+                metadata: { email: adminUser.email },
+              });
+            }
+
             // Self-heal: if this user has no role and there's no Owner yet
             // (pre-teams-feature install), promote them to Owner.
             const refreshed =
@@ -52,6 +115,17 @@ export const authOptions: NextAuthOptions = {
               permissions: Array.from(effective.permissions),
             };
           }
+
+          // Wrong password — log failure.
+          await recordAuditLog({
+            actor: null,
+            action: "auth.login.failure",
+            category: "auth",
+            summary: `Failed sign-in for ${adminUser.email}`,
+            entityType: "user",
+            entityId: adminUser.id,
+            metadata: { email: adminUser.email, reason: "bad_password" },
+          });
         }
 
         // If not admin, check if it's a client
